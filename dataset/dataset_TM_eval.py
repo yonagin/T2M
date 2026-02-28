@@ -10,7 +10,7 @@ from tqdm import tqdm
 import utils.paramUtil as paramUtil
 from torch.utils.data._utils.collate import default_collate
 
-DATA_ROOT = os.environ.get('DATA_ROOT', './dataset')
+DATA_ROOT = os.environ.get('DATA_ROOT', None)
 
 
 def collate_fn(batch):
@@ -30,7 +30,7 @@ class Text2MotionDataset(data.Dataset):
         self.unit_length = unit_length
         self.w_vectorizer = w_vectorizer
         if dataset_name == 't2m':
-            self.data_root = pjoin(DATA_ROOT, 'HumanML3D')
+            self.data_root = DATA_ROOT if DATA_ROOT else './dataset/HumanML3D'
             self.motion_dir = pjoin(self.data_root, 'new_joint_vecs')
             self.text_dir = pjoin(self.data_root, 'texts')
             self.joints_num = 22
@@ -41,7 +41,7 @@ class Text2MotionDataset(data.Dataset):
             kinematic_chain = paramUtil.t2m_kinematic_chain
             self.meta_dir = 'checkpoints/t2m/VQVAEV3_CB1024_CMT_H1024_NRES3/meta'
         elif dataset_name == 'kit':
-            self.data_root = pjoin(DATA_ROOT, 'KIT-ML')
+            self.data_root = DATA_ROOT if DATA_ROOT else './dataset/KIT-ML'
             self.motion_dir = pjoin(self.data_root, 'new_joint_vecs')
             self.text_dir = pjoin(self.data_root, 'texts')
             self.joints_num = 21
