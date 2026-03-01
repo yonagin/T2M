@@ -29,61 +29,18 @@ from utils.word_vectorizer import WordVectorizer
 ###############################################################################
 
 class CodeDiscriminator(nn.Module):
-    """
-    现代化判别器，集成以下GAN技术：
-    - Spectral Normalization (SNGAN, 2018)
-    - 正交权重初始化
-    - 可选 Dropout 正则化
-\    """
-    
-    def __init__(
-        self,
-        num_embeddings: int,
-        use_sn: bool = True,           # Spectral Normalization
-        dropout: float = 0.0,          # Dropout 率
-    ) -> None:
+    def __init__(self, num_embeddings: int) -> None:
         super().__init__()
-        
-        # 归一化包装器
-        norm_fn = spectral_norm if use_sn else nn.Identity
-        
-        # 构建网络（保持原有结构）
-        self.layers = nn.ModuleList([
-            norm_fn(nn.Linear(num_embeddings, 512)),
-            norm_fn(nn.Linear(512, 256)),
-            norm_fn(nn.Linear(256, 128)),
-            norm_fn(nn.Linear(128, 1)),
-        ])
-        
-        self.activation = nn.LeakyReLU(0.2, inplace=True)
-        self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
-        
-        # 现代化权重初始化
-        self._init_weights()
-    
-    def _init_weights(self) -> None:
-        """正交初始化 + 零偏置"""
-        for module in self.modules():
-            if isinstance(module, nn.Linear):
-                # 正交初始化，考虑 LeakyReLU 的 gain
-                nn.init.orthogonal_(
-                    module.weight, 
-                    gain=nn.init.calculate_gain('leaky_relu', 0.2)
-                )
-                if module.bias is not None:
-                    nn.init.zeros_(module.bias)
-    
+        self.net = nn.Sequential(
+            nn.Linear(num_embeddings, 256),
+            nn.LeakyReLU(0.2, True),
+            nn.Linear(256, 128),
+            nn.LeakyReLU(0.2, True),
+            nn.Linear(128, 1),
+        )
+
     def forward(self, p: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            p: [B, num_embeddings] 编码向量
-        Returns:
-            [B] 判别分数（未经 sigmoid）
-        """
-        x = p
-        for layer in self.layers[:-1]:
-            x = self.dropout(self.activation(layer(x)))
-        return self.layers[-1](x).squeeze(-1)
+        return self.net(p).squeeze(-1)
 
 def linear_anneal(step: int, total_steps: int, start: float = 1.0, end: float = 0.1) -> float:
     alpha = min(1.0, step / max(total_steps, 1))
