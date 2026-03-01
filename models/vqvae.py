@@ -26,7 +26,7 @@ class VQVAE_251(nn.Module):
         if args.quantizer == "ema_reset":
             self.quantizer = QuantizeEMAReset(nb_code, code_dim, args)
         elif args.quantizer == "orig":
-            self.quantizer = Quantizer(nb_code, code_dim, 1.0)
+            self.quantizer = Quantizer(nb_code, code_dim, args.beta)
         elif args.quantizer == "ema":
             self.quantizer = QuantizeEMA(nb_code, code_dim, args)
         elif args.quantizer == "reset":
