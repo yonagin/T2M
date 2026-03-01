@@ -166,7 +166,7 @@ lr_emb = args.lr * args.emb_lr_multiplier
 optimizer_codebook = optim.AdamW(codebook_params, lr=lr_emb, betas=(0.9, 0.99), weight_decay=0.0)
 
 min_lr_ratio_cb = args.min_learning_rate / lr_emb
-lambda_cb = get_cosine_schedule_lambda(args.warm_up_iter, total_iter, min_lr_ratio_cb)
+lambda_cb = get_cosine_schedule_lambda(args.warm_up_iter*args.emb_lr_multiplier, total_iter, min_lr_ratio_cb)
 # 注意：LambdaLR 自带 warmup，所以需要在每一次 iteration 中直接调用 .step()
 scheduler_codebook = torch.optim.lr_scheduler.LambdaLR(optimizer_codebook, lr_lambda=lambda_cb)
 
