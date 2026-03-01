@@ -272,11 +272,11 @@ def evaluation_transformer(out_dir, val_loader, net, trans, logger, writer, nb_i
         writer.add_scalar('./Test/matching_score', matching_score_pred, nb_iter)
 
     
-        if nb_iter % 100 == 0 : 
+        if nb_iter % 10000 == 0 : 
             for ii in range(4):
                 tensorborad_add_video_xyz(writer, draw_org[ii], nb_iter, tag='./Vis/org_eval'+str(ii), nb_vis=1, title_batch=[draw_text[ii]], outname=[os.path.join(out_dir, 'gt'+str(ii)+'.gif')] if savegif else None)
             
-        if nb_iter % 100 == 0 : 
+        if nb_iter % 10000 == 0 : 
             for ii in range(4):
                 tensorborad_add_video_xyz(writer, draw_pred[ii], nb_iter, tag='./Vis/pred_eval'+str(ii), nb_vis=1, title_batch=[draw_text_pred[ii]], outname=[os.path.join(out_dir, 'pred'+str(ii)+'.gif')] if savegif else None)
 
