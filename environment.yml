@@ -116,6 +116,5 @@ dependencies:
     - wcwidth==0.2.5
     - werkzeug==2.0.1
     - git+https://github.com/openai/CLIP.git
-    - git+https://github.com/nghorbani/human_body_prior
     - gdown
     - moviepy

@@ -72,7 +72,7 @@ def render(motions, outdir='test_vis', device_id=0, name=None, pred=True):
         if pred:
             vertices = torch.load(outdir + name+'_pred.pt')
         else:
-            vertices = torch.load(outdir + name+'_gt.pt')
+            vertices = torch.load(outdir + name+'_gt.pt', weights_only=False)
     frames = vertices.shape[3] # shape: 1, nb_frames, 3, nb_joints
     print (vertices.shape)
     MINS = torch.min(torch.min(vertices[0], axis=0)[0], axis=1)[0]

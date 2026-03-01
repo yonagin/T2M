@@ -68,14 +68,14 @@ trans_encoder = trans.Text2Motion_Transformer(num_vq=args.nb_code,
 
 
 print ('loading checkpoint from {}'.format(args.resume_pth))
-ckpt = torch.load(args.resume_pth, map_location='cpu')
+ckpt = torch.load(args.resume_pth, map_location='cpu', weights_only=False)
 net.load_state_dict(ckpt['net'], strict=True)
 net.eval()
 net.cuda()
 
 if args.resume_trans is not None:
     print ('loading transformer checkpoint from {}'.format(args.resume_trans))
-    ckpt = torch.load(args.resume_trans, map_location='cpu')
+    ckpt = torch.load(args.resume_trans, map_location='cpu', weights_only=False)
     trans_encoder.load_state_dict(ckpt['trans'], strict=True)
 trans_encoder.train()
 trans_encoder.cuda()

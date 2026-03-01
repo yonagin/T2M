@@ -19,7 +19,7 @@ def build_models(opt):
                                       device=opt.device)
 
     checkpoint = torch.load(pjoin(opt.checkpoints_dir, opt.dataset_name, 'text_mot_match', 'model', 'finest.tar'),
-                            map_location=opt.device)
+                            map_location=opt.device, weights_only=False)
     movement_enc.load_state_dict(checkpoint['movement_encoder'])
     text_enc.load_state_dict(checkpoint['text_encoder'])
     motion_enc.load_state_dict(checkpoint['motion_encoder'])
