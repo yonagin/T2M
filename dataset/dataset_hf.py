@@ -261,8 +261,8 @@ def get_train_loader(dataset_name, batch_size, window_size=64, unit_length=4, nu
     )
     return train_loader
 
-def get_val_loader(dataset_name, batch_size, w_vectorizer, unit_length=4, num_workers=8, cache_dir=None):
-    val_set = HF_Text2MotionDataset(dataset_name, is_test=False, w_vectorizer=w_vectorizer, unit_length=unit_length, cache_dir=cache_dir)
+def get_val_loader(dataset_name, batch_size, w_vectorizer, is_test=False, unit_length=4, num_workers=8, cache_dir=None):
+    val_set = HF_Text2MotionDataset(dataset_name, is_test=is_test, w_vectorizer=w_vectorizer, unit_length=unit_length, cache_dir=cache_dir)
     val_loader = torch.utils.data.DataLoader(
         val_set,
         batch_size=batch_size,
