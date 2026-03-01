@@ -95,9 +95,9 @@ def sample_dirichlet_prior(batch_size: int, num_codes: int, alpha: float, device
     return dist.sample((batch_size,))
 
 def get_soft_p(h: torch.Tensor, codebook: torch.Tensor, temperature: float) -> torch.Tensor:
-    h_norm = (h ** 2).sum(dim=1, keepdim=True)         
+    h_norm = (h.detach() ** 2).sum(dim=1, keepdim=True)         
     c_norm = (codebook ** 2).sum(dim=1).unsqueeze(0)   
-    logits = -(h_norm + c_norm - 2 * h @ codebook.t()) / max(temperature, 1e-6)
+    logits = -(h_norm + c_norm - 2 * h.detach() @ codebook.t()) / max(temperature, 1e-6)
     return F.softmax(logits, dim=-1)                   
 
 def compute_gradient_penalty(discriminator, p_real, p_fake):
