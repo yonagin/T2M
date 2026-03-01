@@ -18,9 +18,10 @@ def plot_3d_motion(args, figsize=(10, 10), fps=120, radius=4):
     
     nb_joints = joints.shape[1]
     smpl_kinetic_chain = [[0, 11, 12, 13, 14, 15], [0, 16, 17, 18, 19, 20], [0, 1, 2, 3, 4], [3, 5, 6, 7], [3, 8, 9, 10]] if nb_joints == 21 else [[0, 2, 5, 8, 11], [0, 1, 4, 7, 10], [0, 3, 6, 9, 12, 15], [9, 14, 17, 19, 21], [9, 13, 16, 18, 20]]
-    limits = 1000 if nb_joints == 21 else 2
     MINS = data.min(axis=0).min(axis=0)
     MAXS = data.max(axis=0).max(axis=0)
+    data_max = max(abs(MINS.min()), abs(MAXS.max()))
+    limits = data_max * 1.2 
     colors = ['red', 'blue', 'black', 'red', 'blue',
               'darkblue', 'darkblue', 'darkblue', 'darkblue', 'darkblue',
               'darkred', 'darkred', 'darkred', 'darkred', 'darkred']
@@ -114,16 +115,23 @@ def plot_3d_motion(args, figsize=(10, 10), fps=120, radius=4):
     return torch.from_numpy(out)
 
 
-def draw_to_batch(smpl_joints_batch, title_batch=None, outname=None) : 
-    
+def draw_to_batch(smpl_joints_batch, title_batch=None, outname=None):
     batch_size = len(smpl_joints_batch)
     out = []
-    for i in range(batch_size) : 
-        out.append(plot_3d_motion([smpl_joints_batch[i], None, title_batch[i] if title_batch is not None else None]))
+    for i in range(batch_size):
+        # 如果需要保存gif，把文件名传进去；否则传 None
+        out.append(plot_3d_motion([
+            smpl_joints_batch[i],
+            None,  # 不在 plot_3d_motion 内逐帧保存
+            title_batch[i] if title_batch is not None else None
+        ]))
         if outname is not None:
-            imageio.mimsave(outname[i], np.array(out[-1]), fps=20)
+            # 确保是 RGB（去掉 Alpha 通道）
+            frames = np.array(out[-1])[:, :, :, :3]
+            imageio.mimsave(outname[i], frames, fps=20)
     out = torch.stack(out, axis=0)
     return out
+
     
 
 

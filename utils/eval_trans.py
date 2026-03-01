@@ -13,9 +13,18 @@ def tensorborad_add_video_xyz(writer, xyz, nb_iter, tag, nb_vis=4, title_batch=N
     xyz = xyz[:1]
     bs, seq = xyz.shape[:2]
     xyz = xyz.reshape(bs, seq, -1, 3)
-    plot_xyz = plot_3d.draw_to_batch(xyz.cpu().numpy(),title_batch, outname)
-    plot_xyz =np.transpose(plot_xyz, (0, 1, 4, 2, 3)) 
-    writer.add_video(tag, plot_xyz, nb_iter, fps = 20)
+    plot_xyz = draw_to_batch(xyz.cpu().numpy(), title_batch, outname)
+    
+    # 只取 RGB 3 通道，去掉 Alpha
+    plot_xyz = plot_xyz[:, :, :, :, :3]  # (B, T, H, W, C) -> RGB only
+    plot_xyz = plot_xyz.permute(0, 1, 4, 2, 3)  # (B, T, C, H, W)
+    
+    # 确保是 uint8 类型
+    if plot_xyz.dtype != torch.uint8:
+        plot_xyz = plot_xyz.byte()
+    
+    writer.add_video(tag, plot_xyz, nb_iter, fps=20)
+
 
 @torch.no_grad()        
 def evaluation_vqvae(out_dir, val_loader, net, logger, writer, nb_iter, best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, eval_wrapper, draw = True, save = True, savegif=True, savenpy=False) : 
