@@ -58,5 +58,15 @@ def get_args_parser():
     parser.add_argument('--vis-gt', action='store_true', help='whether visualize GT motions')
     parser.add_argument('--nb-vis', default=20, type=int, help='nb of visualizations')
     
+    ## ChoiceGAN parameters
+    parser.add_argument('--lambda-adv', default=6e-5, type=float, help='adversarial loss weight')
+    parser.add_argument('--dirichlet-alpha', default=0.1, type=float, help='Dirichlet prior alpha parameter')
+    parser.add_argument('--tau-start', default=1.0, type=float, help='Gumbel-Softmax temperature start')
+    parser.add_argument('--tau-end', default=0.1, type=float, help='Gumbel-Softmax temperature end')
+    parser.add_argument('--switch-usage-threshold', default=95.0, type=float, help='codebook usage threshold for switching')
+    parser.add_argument('--gan-loss-type', default='wgan-gp', type=str, choices=['wgan-gp', 'bce', 'lsgan'], help='GAN loss type')
+    parser.add_argument('--gp-weight', default=10.0, type=float, help='gradient penalty weight')
+    parser.add_argument('--emb-lr-multiplier', default=20.0, type=float, help='embedding learning rate multiplier')
+    parser.add_argument('--min-learning-rate', default=1e-5, type=float, help='minimum learning rate for cosine annealing')
     
     return parser.parse_args()
