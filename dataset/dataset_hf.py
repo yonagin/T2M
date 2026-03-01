@@ -247,10 +247,20 @@ class HF_Text2MotionDataset(data.Dataset):
 
         return word_embeddings, pos_one_hots, caption, sent_len, motion, m_length, '_'.join(tokens), name
 
+# ==========================================
+# 统一的 DataLoader 获取接口
+# ==========================================
+def get_train_loader(dataset_name, batch_size, window_size=64, unit_length=4, num_workers=8, cache_dir=None):
+    train_set = HF_VQMotionDataset(dataset_name, window_size=window_size, unit_length=unit_length, cache_dir=cache_dir)
+    train_loader = torch.utils.data.DataLoader(
+        train_set,
+        batch_size=batch_size,
+        shuffle=True,          
+        num_workers=num_workers,
+        drop_last=True
+    )
+    return train_loader
 
-# ==========================================
-# 统一的 DataLoader 获取接口（修复版）
-# ==========================================
 def get_val_loader(dataset_name, batch_size, w_vectorizer, unit_length=4, num_workers=8, cache_dir=None):
     val_set = HF_Text2MotionDataset(dataset_name, is_test=False, w_vectorizer=w_vectorizer, unit_length=unit_length, cache_dir=cache_dir)
     val_loader = torch.utils.data.DataLoader(
@@ -258,19 +268,7 @@ def get_val_loader(dataset_name, batch_size, w_vectorizer, unit_length=4, num_wo
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        collate_fn=collate_fn,
+        collate_fn=collate_fn, 
         drop_last=True
     )
     return val_loader
-
-def get_test_loader(dataset_name, batch_size, w_vectorizer, unit_length=4, num_workers=8, cache_dir=None):
-    test_set = HF_Text2MotionDataset(dataset_name, is_test=True, w_vectorizer=w_vectorizer, unit_length=unit_length, cache_dir=cache_dir)
-    test_loader = torch.utils.data.DataLoader(
-        test_set,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        collate_fn=collate_fn,
-        drop_last=True
-    )
-    return test_loader
