@@ -10,6 +10,7 @@ import utils.losses as losses
 import options.option_vq as option_vq
 import utils.utils_model as utils_model
 from dataset import dataset_VQ, dataset_TM_eval
+from dataset import dataset_hf
 import utils.eval_trans as eval_trans
 from options.get_eval_option import get_opt
 from models.evaluator_wrapper import EvaluatorModelWrapper
@@ -56,17 +57,34 @@ eval_wrapper = EvaluatorModelWrapper(wrapper_opt)
 
 
 ##### ---- Dataloader ---- #####
-train_loader = dataset_VQ.DATALoader(args.dataname,
-                                        args.batch_size,
-                                        window_size=args.window_size,
-                                        unit_length=2**args.down_t)
+if args.cache_dir is not None:
+    train_loader = dataset_hf.get_train_loader(
+        args.dataname,
+        args.batch_size,
+        window_size=args.window_size,
+        unit_length=2**args.down_t,
+        cache_dir=args.cache_dir
+    )
+    train_loader_iter = dataset_hf.cycle(train_loader)
+    val_loader = dataset_hf.get_val_loader(
+        args.dataname,
+        batch_size=32,
+        w_vectorizer=w_vectorizer,
+        unit_length=2**args.down_t,
+        cache_dir=args.cache_dir
+    )
+else:
+    train_loader = dataset_VQ.DATALoader(args.dataname,
+                                            args.batch_size,
+                                            window_size=args.window_size,
+                                            unit_length=2**args.down_t)
 
-train_loader_iter = dataset_VQ.cycle(train_loader)
+    train_loader_iter = dataset_VQ.cycle(train_loader)
 
-val_loader = dataset_TM_eval.DATALoader(args.dataname, False,
-                                        32,
-                                        w_vectorizer,
-                                        unit_length=2**args.down_t)
+    val_loader = dataset_TM_eval.DATALoader(args.dataname, False,
+                                            32,
+                                            w_vectorizer,
+                                            unit_length=2**args.down_t)
 
 ##### ---- Network ---- #####
 net = vqvae.HumanVQVAE(args, ## use args to define different parameters in different quantizers
