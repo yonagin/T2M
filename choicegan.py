@@ -268,7 +268,6 @@ for nb_iter in range(1, total_iter + 1):
             d_loss = torch.mean(d_fake) - torch.mean(d_real) + args.gp_weight * gp_loss
 
         d_loss.backward()
-        torch.nn.utils.clip_grad_norm_(discriminator.parameters(), 1.0)
         optimizer_d.step()
 
         # 生成器对抗损失
@@ -290,9 +289,7 @@ for nb_iter in range(1, total_iter + 1):
         loss_g = loss_g + args.lambda_adv * adv_fake_for_g
 
     loss_g.backward()
-    
-    torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
-    
+        
     optimizer_main.step()
     optimizer_codebook.step()
 
