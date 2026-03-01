@@ -7,6 +7,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch import autograd
 from torch.utils.tensorboard import SummaryWriter
+from torch.nn.utils import spectral_norm
+
 
 import models.vqvae as vqvae
 import utils.losses as losses
@@ -27,18 +29,61 @@ from utils.word_vectorizer import WordVectorizer
 ###############################################################################
 
 class CodeDiscriminator(nn.Module):
-    def __init__(self, num_embeddings: int) -> None:
+    """
+    现代化判别器，集成以下GAN技术：
+    - Spectral Normalization (SNGAN, 2018)
+    - 正交权重初始化
+    - 可选 Dropout 正则化
+\    """
+    
+    def __init__(
+        self,
+        num_embeddings: int,
+        use_sn: bool = True,           # Spectral Normalization
+        dropout: float = 0.0,          # Dropout 率
+    ) -> None:
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(num_embeddings, 256),
-            nn.LeakyReLU(0.2, True),
-            nn.Linear(256, 128),
-            nn.LeakyReLU(0.2, True),
-            nn.Linear(128, 1),
-        )
-
+        
+        # 归一化包装器
+        norm_fn = spectral_norm if use_sn else nn.Identity
+        
+        # 构建网络（保持原有结构）
+        self.layers = nn.ModuleList([
+            norm_fn(nn.Linear(num_embeddings, 512)),
+            norm_fn(nn.Linear(512, 256)),
+            norm_fn(nn.Linear(256, 128)),
+            norm_fn(nn.Linear(128, 1)),
+        ])
+        
+        self.activation = nn.LeakyReLU(0.2, inplace=True)
+        self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
+        
+        # 现代化权重初始化
+        self._init_weights()
+    
+    def _init_weights(self) -> None:
+        """正交初始化 + 零偏置"""
+        for module in self.modules():
+            if isinstance(module, nn.Linear):
+                # 正交初始化，考虑 LeakyReLU 的 gain
+                nn.init.orthogonal_(
+                    module.weight, 
+                    gain=nn.init.calculate_gain('leaky_relu', 0.2)
+                )
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
+    
     def forward(self, p: torch.Tensor) -> torch.Tensor:
-        return self.net(p).squeeze(-1)
+        """
+        Args:
+            p: [B, num_embeddings] 编码向量
+        Returns:
+            [B] 判别分数（未经 sigmoid）
+        """
+        x = p
+        for layer in self.layers[:-1]:
+            x = self.dropout(self.activation(layer(x)))
+        return self.layers[-1](x).squeeze(-1)
 
 def linear_anneal(step: int, total_steps: int, start: float = 1.0, end: float = 0.1) -> float:
     alpha = min(1.0, step / max(total_steps, 1))
@@ -160,13 +205,13 @@ optimizer_main = optim.AdamW(main_params, lr=args.lr, betas=(0.9, 0.99), weight_
 scheduler_main = torch.optim.lr_scheduler.MultiStepLR(optimizer_main, milestones=args.lr_scheduler, gamma=args.gamma)
 
 # ==========================================================
-# 2B. 码本 (Codebook) - 采用 ChoiceGAN 策略 (百倍LR + 余弦退火 + 0权重衰减)
+# 2B. 码本 (Codebook) - 采用 ChoiceGAN 策略
 # ==========================================================
 lr_emb = args.lr * args.emb_lr_multiplier
 optimizer_codebook = optim.AdamW(codebook_params, lr=lr_emb, betas=(0.9, 0.99), weight_decay=0.0)
 
 min_lr_ratio_cb = args.min_learning_rate / lr_emb
-lambda_cb = get_cosine_schedule_lambda(args.warm_up_iter*args.emb_lr_multiplier, total_iter, min_lr_ratio_cb)
+lambda_cb = get_cosine_schedule_lambda(args.warm_up_iter, total_iter, min_lr_ratio_cb)
 # 注意：LambdaLR 自带 warmup，所以需要在每一次 iteration 中直接调用 .step()
 scheduler_codebook = torch.optim.lr_scheduler.LambdaLR(optimizer_codebook, lr_lambda=lambda_cb)
 
