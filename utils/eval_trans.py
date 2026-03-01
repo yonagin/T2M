@@ -13,7 +13,7 @@ def tensorborad_add_video_xyz(writer, xyz, nb_iter, tag, nb_vis=4, title_batch=N
     xyz = xyz[:1]
     bs, seq = xyz.shape[:2]
     xyz = xyz.reshape(bs, seq, -1, 3)
-    plot_xyz = draw_to_batch(xyz.cpu().numpy(), title_batch, outname)
+    plot_xyz = plot_3d.draw_to_batch(xyz.cpu().numpy(), title_batch, outname)
     
     # 只取 RGB 3 通道，去掉 Alpha
     plot_xyz = plot_xyz[:, :, :, :, :3]  # (B, T, H, W, C) -> RGB only
@@ -118,11 +118,11 @@ def evaluation_vqvae(out_dir, val_loader, net, logger, writer, nb_iter, best_fid
         writer.add_scalar('./Test/matching_score', matching_score_pred, nb_iter)
 
     
-        if nb_iter % 100 == 0 : 
+        if nb_iter % 10 == 0 : 
             for ii in range(4):
                 tensorborad_add_video_xyz(writer, draw_org[ii], nb_iter, tag='./Vis/org_eval'+str(ii), nb_vis=1, title_batch=[draw_text[ii]], outname=[os.path.join(out_dir, 'gt'+str(ii)+'.gif')] if savegif else None)
             
-        if nb_iter % 100 == 0 : 
+        if nb_iter % 10 == 0 : 
             for ii in range(4):
                 tensorborad_add_video_xyz(writer, draw_pred[ii], nb_iter, tag='./Vis/pred_eval'+str(ii), nb_vis=1, title_batch=[draw_text[ii]], outname=[os.path.join(out_dir, 'pred'+str(ii)+'.gif')] if savegif else None)   
 
