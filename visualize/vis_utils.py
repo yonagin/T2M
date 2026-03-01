@@ -1,4 +1,4 @@
-from model.rotation2xyz import Rotation2xyz
+from models.rotation2xyz import Rotation2xyz
 import numpy as np
 from trimesh import Trimesh
 import os
