@@ -88,9 +88,6 @@ def get_cosine_schedule_lambda(warmup_steps, total_steps, min_lr_ratio):
     return scheduler_fn
 
 
-###############################################################################
-# T2M-GPT 框架 & 参数注入
-###############################################################################
 
 ##### ---- Exp dirs ---- #####
 args = option_vq.get_args_parser()
@@ -222,13 +219,9 @@ for nb_iter in range(1, total_iter + 1):
     loss_motion = Loss(pred_motion, gt_motion)
     loss_vel = Loss.forward_vel(pred_motion, gt_motion)
 
-    # ---- ChoiceGAN 核心计算 ----
     h_flat = net.vqvae.quantizer.preprocess(h)
     codebook = net.vqvae.quantizer.embedding.weight
-
     temperature = linear_anneal(nb_iter, total_iter, start=args.tau_start, end=args.tau_end)
-    p_fake = get_soft_p(h_flat, codebook, temperature)
-    p_real = sample_dirichlet_prior(p_fake.size(0), args.nb_code, args.dirichlet_alpha, device=gt_motion.device)
 
     # 阶段监控
     code_idx = net.vqvae.quantizer.quantize(h_flat)
@@ -251,6 +244,9 @@ for nb_iter in range(1, total_iter + 1):
 
     # ---- 训练判别器 D ----
     if stage == 1:
+        p_fake = get_soft_p(h_flat, codebook, temperature)
+        p_real = sample_dirichlet_prior(p_fake.size(0), args.nb_code, args.dirichlet_alpha, device=gt_motion.device)
+        
         discriminator.requires_grad_(True)
         optimizer_d.zero_grad()
 

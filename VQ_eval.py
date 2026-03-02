@@ -59,7 +59,7 @@ if args.resume_pth :
     logger.info('loading checkpoint from {}'.format(args.resume_pth))
     ckpt = torch.load(args.resume_pth, map_location='cpu', weights_only=False)
     net.load_state_dict(ckpt['net'], strict=True)
-net.train()
+net.eval()
 net.cuda()
 
 fid = []
