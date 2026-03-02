@@ -9,8 +9,7 @@ import models.vqvae as vqvae
 import utils.losses as losses 
 import options.option_vq as option_vq
 import utils.utils_model as utils_model
-from dataset import dataset_VQ, dataset_TM_eval
-from dataset import dataset_hf
+from dataset import dataset_VQ, dataset_TM_eval, dataset_hf
 import utils.eval_trans as eval_trans
 from options.get_eval_option import get_opt
 from models.evaluator_wrapper import EvaluatorModelWrapper
