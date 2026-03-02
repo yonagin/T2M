@@ -38,7 +38,7 @@ def get_args_parser():
     
     ## quantizer
     parser.add_argument("--quantizer", type=str, default='ema_reset', choices = ['ema', 'orig', 'ema_reset', 'reset'], help="eps for optimal transport")
-    parser.add_argument('--beta', type=float, default=0.25, help='commitment loss in standard VQ')
+    parser.add_argument('--beta', type=float, default=1.0, help='commitment loss in standard VQ')
 
     ## resume
     parser.add_argument("--resume-pth", type=str, default=None, help='resume pth for VQ')
