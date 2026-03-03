@@ -382,7 +382,6 @@ class HF_Text2MotionTokenDataset(data.Dataset):
         all_captions = hf_dataset['caption']
         
         # ===== 优化3: 使用字典推导 + 并行预加载 token =====
-        print("Building data_dict...")
         data_dict = {}
         new_name_list = []
         
@@ -390,7 +389,7 @@ class HF_Text2MotionTokenDataset(data.Dataset):
         valid_indices = [i for i, name in enumerate(all_names) if name in available_tokens]
         print(f"Valid samples with VQ tokens: {len(valid_indices)}")
         
-        for i in tqdm(valid_indices, desc="Building data_dict"):
+        for i in tqdm(valid_indices, desc="Building data_dict(train)"):
             name = all_names[i]
             raw_text_str = all_captions[i]
             
