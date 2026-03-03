@@ -465,30 +465,39 @@ class HF_Text2MotionTokenDataset(data.Dataset):
         # 延迟加载 token
         m_token_list = np.load(data['token_file'])
         
-        # 如果是子动作，切片
+        # --- 修复逻辑：确保 m_tokens 是一维的 ---
+        # 如果 m_token_list 是二维 (N, L)，random.choice 会选出其中一行 (L,)
+        # 如果已经是 (L,)，则直接使用
+        m_tokens = random.choice(m_token_list) if m_token_list.ndim > 1 else m_token_list
+        
+        # 如果是子动作，对这个 1D 序列进行切片
         if 'slice' in data:
             start, end = data['slice']
-            m_tokens = m_token_list[start:end] if m_token_list.ndim == 1 else m_token_list[:, start:end]
-        else:
-            m_tokens = random.choice(m_token_list) if m_token_list.ndim > 1 else m_token_list
+            m_tokens = m_tokens[start:end]
+        # --------------------------------------
 
-        # 随机 drop token
+        # 随机 drop token (数据增强)
         if np.random.random() < 1/3:
-            m_tokens = m_tokens[:-1] if np.random.random() < 0.5 else m_tokens[1:]
+            if len(m_tokens) > 1: # 增加校验防止切空
+                m_tokens = m_tokens[:-1] if np.random.random() < 0.5 else m_tokens[1:]
         
-        m_tokens_len = m_tokens.shape[0]
+        m_tokens_len = len(m_tokens)
 
-        # padding
+        # Padding 逻辑 (参考 dataset_TM_train.py 确保拼接维度一致)
         if m_tokens_len + 1 < self.max_motion_length:
             m_tokens = np.concatenate([
-                m_tokens,
-                [self.mot_end_idx],
-                [self.mot_pad_idx] * (self.max_motion_length - 1 - m_tokens_len)
-            ])
+                m_tokens, 
+                np.array([self.mot_end_idx], dtype=m_tokens.dtype), 
+                np.full((self.max_motion_length - 1 - m_tokens_len), self.mot_pad_idx, dtype=m_tokens.dtype)
+            ], axis=0)
         else:
-            m_tokens = np.concatenate([m_tokens, [self.mot_end_idx]])
+            m_tokens = np.concatenate([
+                m_tokens, 
+                np.array([self.mot_end_idx], dtype=m_tokens.dtype)
+            ], axis=0)
 
-        return caption, m_tokens.astype(np.int64), m_tokens_len
+        # 最终 reshape(-1) 确保返回形状为 (max_motion_length,)
+        return caption, m_tokens.reshape(-1).astype(np.int64), m_tokens_len
 
 
 # ==========================================
