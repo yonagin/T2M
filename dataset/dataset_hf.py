@@ -341,15 +341,9 @@ def tokenize_collate_fn(batch):
 #    对应原始 dataset_TM_train.py 的 Text2MotionDataset
 # ==========================================
 class HF_Text2MotionTokenDataset(data.Dataset):
-    """
-    Transformer 训练用。
-    需要预先完成 tokenization（将 motion 编码为 VQ token 并保存到 vq_dir）。
-    然后从 HF 数据集读取 text，从本地 vq_dir 读取对应的 token 序列。
-    """
     def __init__(self, dataset_name, codebook_size=1024, tokenizer_name=None,
                  unit_length=4, cache_dir=None, vq_dir=None):
         self.max_length = 64
-        self.pointer = 0
         self.dataset_name = dataset_name
         self.unit_length = unit_length
 
@@ -362,125 +356,140 @@ class HF_Text2MotionTokenDataset(data.Dataset):
         elif dataset_name == 'kit':
             fps = 12.5
             self.max_motion_length = 26 if unit_length == 8 else 51
+        self.fps = fps
 
-        # vq_dir: 存放 tokenized motion 的目录
+        # vq_dir 设置
         if vq_dir is not None:
             self.vq_dir = vq_dir
         else:
             data_root = "./dataset/KIT-ML" if dataset_name == 'kit' else "./dataset/HumanML3D"
             self.vq_dir = pjoin(data_root, tokenizer_name) if tokenizer_name else pjoin(data_root, 'vq_tokens')
 
-        print(f"Loading {dataset_name} Train dataset from HuggingFace for Transformer training...")
+        print(f"Loading {dataset_name} Train dataset from HuggingFace...")
         hf_dataset = load_dataset("TeoGchx/HumanML3D", split="train", cache_dir=cache_dir)
-        print(f"HF raw train set size: {len(hf_dataset)}")
+        
+        # ===== 优化1: 预先获取所有可用的 vq token 文件 =====
+        print("Scanning available VQ token files...")
+        available_tokens = set(
+            f[:-4] for f in os.listdir(self.vq_dir) if f.endswith('.npy')
+        )
+        print(f"Found {len(available_tokens)} VQ token files")
 
-        # 构建 data_dict，与原始 dataset_TM_train.py 逻辑一致
-        new_name_list = []
+        # ===== 优化2: 批量提取需要的字段，避免逐个访问 =====
+        print("Extracting data from HF dataset...")
+        # 一次性提取所有需要的数据
+        all_names = [item['name'] for item in hf_dataset['meta_data']]
+        all_captions = hf_dataset['caption']
+        
+        # ===== 优化3: 使用字典推导 + 并行预加载 token =====
+        print("Building data_dict...")
         data_dict = {}
-
-        for i in tqdm(range(len(hf_dataset)), desc="Building Transformer train data_dict"):
-            try:
-                data_item = hf_dataset[i]
-                name = data_item['meta_data']['name']
-
-                # 读取对应的 VQ token 文件
-                token_path = pjoin(self.vq_dir, f'{name}.npy')
-                if not os.path.exists(token_path):
-                    continue
-                m_token_list = np.load(token_path)  # shape: (num_quantizers, seq_len) or (seq_len,)
-
-                # 解析 caption
-                raw_text_str = data_item['caption']
-                text_lines = [line for line in raw_text_str.split('\n') if line.strip() != '']
-
-                text_data = []
-                flag = False
-
-                for line in text_lines:
-                    try:
-                        text_dict = {}
-                        line_split = line.strip().split('#')
-                        if len(line_split) < 4:
-                            continue
-
-                        caption = line_split[0]
-                        t_tokens = line_split[1].split(' ')
-                        f_tag = float(line_split[2])
-                        to_tag = float(line_split[3])
-                        f_tag = 0.0 if np.isnan(f_tag) else f_tag
-                        to_tag = 0.0 if np.isnan(to_tag) else to_tag
-
-                        text_dict['caption'] = caption
-                        text_dict['tokens'] = t_tokens
-
-                        if f_tag == 0.0 and to_tag == 0.0:
-                            flag = True
-                            text_data.append(text_dict)
-                        else:
-                            # 子动作切片: token 级别切片
-                            m_token_list_new = [
-                                tokens[int(f_tag * fps / unit_length): int(to_tag * fps / unit_length)]
-                                for tokens in m_token_list
-                                if int(f_tag * fps / unit_length) < int(to_tag * fps / unit_length)
-                            ]
-                            if len(m_token_list_new) == 0:
-                                continue
-                            new_name = '%s_%f_%f' % (name, f_tag, to_tag)
-                            data_dict[new_name] = {
-                                'm_token_list': m_token_list_new,
-                                'text': [text_dict]
-                            }
-                            new_name_list.append(new_name)
-                    except:
-                        pass
-
-                if flag:
-                    data_dict[name] = {
-                        'm_token_list': m_token_list,
-                        'text': text_data
-                    }
-                    new_name_list.append(name)
-            except:
-                pass
+        new_name_list = []
+        
+        # 预加载所有需要的 token（可选：用多进程加速）
+        valid_indices = [i for i, name in enumerate(all_names) if name in available_tokens]
+        print(f"Valid samples with VQ tokens: {len(valid_indices)}")
+        
+        for i in tqdm(valid_indices, desc="Building data_dict"):
+            name = all_names[i]
+            raw_text_str = all_captions[i]
+            
+            # 解析 caption（简化逻辑）
+            text_data, sub_motions = self._parse_captions(raw_text_str, name, fps, unit_length)
+            
+            if not text_data and not sub_motions:
+                continue
+                
+            # 延迟加载 token（在 __getitem__ 中加载）
+            if text_data:
+                data_dict[name] = {'text': text_data, 'token_file': pjoin(self.vq_dir, f'{name}.npy')}
+                new_name_list.append(name)
+            
+            for sub_name, sub_text, f_tag, to_tag in sub_motions:
+                data_dict[sub_name] = {
+                    'text': [sub_text],
+                    'token_file': pjoin(self.vq_dir, f'{name}.npy'),
+                    'slice': (int(f_tag * fps / unit_length), int(to_tag * fps / unit_length))
+                }
+                new_name_list.append(sub_name)
 
         self.data_dict = data_dict
         self.name_list = new_name_list
-        print(f"HF Transformer Train Dataset Loaded! Total valid entries: {len(self.data_dict)}")
+        print(f"Dataset Loaded! Total entries: {len(self.data_dict)}")
+
+    def _parse_captions(self, raw_text_str, name, fps, unit_length):
+        """解析 caption 字符串，返回完整动作文本和子动作列表"""
+        text_data = []
+        sub_motions = []
+        
+        for line in raw_text_str.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            
+            parts = line.split('#')
+            if len(parts) < 4:
+                continue
+            
+            try:
+                caption = parts[0]
+                t_tokens = parts[1].split(' ')
+                f_tag = float(parts[2]) if parts[2] else 0.0
+                to_tag = float(parts[3]) if parts[3] else 0.0
+                
+                if np.isnan(f_tag): f_tag = 0.0
+                if np.isnan(to_tag): to_tag = 0.0
+                
+                text_dict = {'caption': caption, 'tokens': t_tokens}
+                
+                if f_tag == 0.0 and to_tag == 0.0:
+                    text_data.append(text_dict)
+                else:
+                    start_idx = int(f_tag * fps / unit_length)
+                    end_idx = int(to_tag * fps / unit_length)
+                    if start_idx < end_idx:
+                        sub_name = f'{name}_{f_tag}_{to_tag}'
+                        sub_motions.append((sub_name, text_dict, f_tag, to_tag))
+            except:
+                continue
+        
+        return text_data, sub_motions
 
     def __len__(self):
-        return len(self.data_dict)
+        return len(self.name_list)
 
     def __getitem__(self, item):
         data = self.data_dict[self.name_list[item]]
-        m_token_list, text_list = data['m_token_list'], data['text']
-        m_tokens = random.choice(m_token_list)
-
-        text_data = random.choice(text_list)
+        text_data = random.choice(data['text'])
         caption = text_data['caption']
+        
+        # 延迟加载 token
+        m_token_list = np.load(data['token_file'])
+        
+        # 如果是子动作，切片
+        if 'slice' in data:
+            start, end = data['slice']
+            m_tokens = m_token_list[start:end] if m_token_list.ndim == 1 else m_token_list[:, start:end]
+        else:
+            m_tokens = random.choice(m_token_list) if m_token_list.ndim > 1 else m_token_list
 
-        # 随机 drop 一个 token
-        coin = np.random.choice([False, False, True])
-        if coin:
-            coin2 = np.random.choice([True, False])
-            if coin2:
-                m_tokens = m_tokens[:-1]
-            else:
-                m_tokens = m_tokens[1:]
-        m_tokens_len = m_tokens.shape[0]
+        # 随机 drop token
+        if np.random.random() < 1/3:
+            m_tokens = m_tokens[:-1] if np.random.random() < 0.5 else m_tokens[1:]
+        
+        m_tokens_len = len(m_tokens)
 
+        # padding
         if m_tokens_len + 1 < self.max_motion_length:
             m_tokens = np.concatenate([
                 m_tokens,
-                np.ones((1,), dtype=int) * self.mot_end_idx,
-                np.ones((self.max_motion_length - 1 - m_tokens_len,), dtype=int) * self.mot_pad_idx
-            ], axis=0)
+                [self.mot_end_idx],
+                [self.mot_pad_idx] * (self.max_motion_length - 1 - m_tokens_len)
+            ])
         else:
-            m_tokens = np.concatenate([
-                m_tokens,
-                np.ones((1,), dtype=int) * self.mot_end_idx
-            ], axis=0)
+            m_tokens = np.concatenate([m_tokens, [self.mot_end_idx]])
 
-        return caption, m_tokens.reshape(-1), m_tokens_len
+        return caption, m_tokens.astype(np.int64), m_tokens_len
 
 
 # ==========================================
