@@ -183,6 +183,7 @@ while nb_iter <= args.total_iter:
     batch = next(train_loader_iter)
     clip_text, m_tokens, m_tokens_len = batch
     m_tokens, m_tokens_len = m_tokens.cuda(), m_tokens_len.cuda()
+    print(m_tokens_len)
     bs = m_tokens.shape[0]
     target = m_tokens  # (bs, max_motion_length)
     target = target.cuda()
@@ -237,13 +238,13 @@ while nb_iter <= args.total_iter:
         right_num = 0
         nb_sample_train = 0
 
-
-    best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, writer, logger = \
-        eval_trans.evaluation_transformer(
-            args.out_dir, val_loader, net, trans_encoder, logger, writer, nb_iter,
-            best_fid, best_iter, best_div, best_top1, best_top2,
-            best_top3, best_matching, clip_model=clip_model, eval_wrapper=eval_wrapper
-        )
+    if nb_iter % args.eval_iter == 0:
+        best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, writer, logger = \
+            eval_trans.evaluation_transformer(
+                args.out_dir, val_loader, net, trans_encoder, logger, writer, nb_iter,
+                best_fid, best_iter, best_div, best_top1, best_top2,
+                best_top3, best_matching, clip_model=clip_model, eval_wrapper=eval_wrapper
+            )
 
     if nb_iter == args.total_iter:
         msg_final = f"Train. Iter {best_iter} : FID. {best_fid:.5f}, Diversity. {best_div:.4f}, TOP1. {best_top1:.4f}, TOP2. {best_top2:.4f}, TOP3. {best_top3:.4f}"
