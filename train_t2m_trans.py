@@ -183,7 +183,6 @@ while nb_iter <= args.total_iter:
     batch = next(train_loader_iter)
     clip_text, m_tokens, m_tokens_len = batch
     m_tokens, m_tokens_len = m_tokens.cuda(), m_tokens_len.cuda()
-    print(m_tokens_len)
     bs = m_tokens.shape[0]
     target = m_tokens  # (bs, max_motion_length)
     target = target.cuda()
@@ -229,10 +228,10 @@ while nb_iter <= args.total_iter:
     nb_iter += 1
     if nb_iter % args.print_iter == 0:
         avg_loss_cls = avg_loss_cls / args.print_iter
-        avg_acc = right_num * 100 / nb_sample_train
+        avg_acc = right_num * 100 / nb_sample_train 
         writer.add_scalar('./Loss/train', avg_loss_cls, nb_iter)
         writer.add_scalar('./ACC/train', avg_acc, nb_iter)
-        msg = f"Train. Iter {nb_iter} : Loss. {avg_loss_cls:.5f}, ACC. {avg_acc:.4f}"
+        msg = f"Train. Iter {nb_iter} : Loss. {avg_loss_cls:.5f}, ACC. {avg_acc:.4f}%"
         logger.info(msg)
         avg_loss_cls = 0.
         right_num = 0
