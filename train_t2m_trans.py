@@ -174,16 +174,9 @@ else:
     # --- Step 3: Build val loader ---
     val_loader = dataset_TM_eval.DATALoader(args.dataname, False, 32, w_vectorizer)
 
-print('fuck')
 
 ##### ---- Training ---- #####
-best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, writer, logger = \
-    eval_trans.evaluation_transformer(
-        args.out_dir, val_loader, net, trans_encoder, logger, writer, 0,
-        best_fid=1000, best_iter=0, best_div=100,
-        best_top1=0, best_top2=0, best_top3=0,
-        best_matching=100, clip_model=clip_model, eval_wrapper=eval_wrapper
-    )
+best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching = 1000.0, 0, 0.0, 0.0, 0.0, 0.0, 100.0    
 
 while nb_iter <= args.total_iter:
 
