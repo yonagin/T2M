@@ -249,6 +249,11 @@ class HF_Text2MotionDataset(data.Dataset):
 class HF_TokenizeDataset(data.Dataset):
     """
     用于将 HF 训练集的 motion 通过 VQ-VAE encoder 编码为离散 token。
+    与原始 VQMotionDataset 保持一致的处理逻辑：
+    - 过滤过短/过长的 motion
+    - 长度按 unit_length 对齐
+    - 随机裁剪起始位置
+    - Z-normalization
     每条样本返回: (motion_tensor, name_str)
     """
     def __init__(self, dataset_name, unit_length=4, cache_dir=None):
@@ -257,27 +262,61 @@ class HF_TokenizeDataset(data.Dataset):
 
         if dataset_name == 't2m':
             self.meta_dir = 'checkpoints/t2m/VQVAEV3_CB1024_CMT_H1024_NRES3/meta'
+            min_motion_len = 40
         elif dataset_name == 'kit':
             self.meta_dir = 'checkpoints/kit/VQVAEV3_CB1024_CMT_H1024_NRES3/meta'
+            min_motion_len = 24
 
         self.mean = np.load(os.path.join(self.meta_dir, 'mean.npy'))
         self.std = np.load(os.path.join(self.meta_dir, 'std.npy'))
 
         print(f"Loading {dataset_name} Train dataset from HuggingFace for tokenization...")
-        self.hf_dataset = load_dataset("TeoGchx/HumanML3D", split="train", cache_dir=cache_dir)
-        self.hf_dataset = self.hf_dataset.with_format("numpy")
-        print(f"HF Tokenize Dataset Loaded! Total motions: {len(self.hf_dataset)}")
+        hf_dataset = load_dataset("TeoGchx/HumanML3D", split="train", cache_dir=cache_dir)
+
+        # 与原始 VQMotionDataset 一致：预加载到内存并过滤
+        self.data_dict = {}
+        self.name_list = []
+        self.length_list = []
+
+        for i in tqdm(range(len(hf_dataset)), desc="Loading tokenize data"):
+            try:
+                data_item = hf_dataset[i]
+                motion = np.array(data_item['motion'], dtype=np.float32)
+                name = data_item['meta_data']['name']
+
+                if len(motion) < min_motion_len or len(motion) >= 200:
+                    continue
+
+                self.data_dict[name] = {
+                    'motion': motion,
+                    'length': len(motion),
+                    'name': name
+                }
+                self.name_list.append(name)
+                self.length_list.append(len(motion))
+            except:
+                pass
+
+        self.length_arr = np.array(self.length_list)
+        print(f"HF Tokenize Dataset Loaded! Total valid motions: {len(self.data_dict)}")
 
     def inv_transform(self, data_in):
         return data_in * self.std + self.mean
 
     def __len__(self):
-        return len(self.hf_dataset)
+        return len(self.data_dict)
 
     def __getitem__(self, item):
-        data_item = self.hf_dataset[item]
-        motion = data_item['motion'].astype(np.float32)
-        name = data_item['meta_data']['name']
+        name = self.name_list[item]
+        data = self.data_dict[name]
+        motion, m_length = data['motion'], data['length']
+
+        # 与原始 VQMotionDataset 一致：长度按 unit_length 对齐
+        m_length = (m_length // self.unit_length) * self.unit_length
+
+        # 随机裁剪起始位置
+        idx = random.randint(0, len(motion) - m_length)
+        motion = motion[idx: idx + m_length]
 
         # Z-normalization
         motion = (motion - self.mean) / self.std
