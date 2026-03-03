@@ -476,7 +476,7 @@ class HF_Text2MotionTokenDataset(data.Dataset):
         if np.random.random() < 1/3:
             m_tokens = m_tokens[:-1] if np.random.random() < 0.5 else m_tokens[1:]
         
-        m_tokens_len = len(m_tokens)
+        m_tokens_len = m_tokens.shape[0]
 
         # padding
         if m_tokens_len + 1 < self.max_motion_length:
