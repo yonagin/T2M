@@ -517,7 +517,7 @@ def get_val_loader(dataset_name, batch_size, w_vectorizer, is_test=False, unit_l
     val_loader = torch.utils.data.DataLoader(
         val_set,
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=False,
         num_workers=num_workers,
         collate_fn=collate_fn,
         drop_last=True

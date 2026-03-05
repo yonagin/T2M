@@ -262,14 +262,13 @@ def evaluation_transformer(out_dir, val_loader, net, trans, logger, writer, nb_i
     msg = f"--> \t Eva. Iter {nb_iter} :, FID. {fid:.4f}, Diversity Real. {diversity_real:.4f}, Diversity. {diversity:.4f}, R_precision_real. {R_precision_real}, R_precision. {R_precision}, matching_score_real. {matching_score_real}, matching_score_pred. {matching_score_pred}"
     logger.info(msg)
 
-    writer.add_scalar('./Test/FID', fid, nb_iter)
-    writer.add_scalar('./Test/Diversity', diversity, nb_iter)
-    writer.add_scalar('./Test/top1', R_precision[0], nb_iter)
-    writer.add_scalar('./Test/top2', R_precision[1], nb_iter)
-    writer.add_scalar('./Test/top3', R_precision[2], nb_iter)
-    writer.add_scalar('./Test/matching_score', matching_score_pred, nb_iter)
-
     if draw:
+        writer.add_scalar('./Test/FID', fid, nb_iter)
+        writer.add_scalar('./Test/Diversity', diversity, nb_iter)
+        writer.add_scalar('./Test/top1', R_precision[0], nb_iter)
+        writer.add_scalar('./Test/top2', R_precision[1], nb_iter)
+        writer.add_scalar('./Test/top3', R_precision[2], nb_iter)
+        writer.add_scalar('./Test/matching_score', matching_score_pred, nb_iter)
         if nb_iter % 1000000 == 0 : 
             for ii in range(4):
                 tensorborad_add_video_xyz(writer, draw_org[ii], nb_iter, tag='./Vis/org_eval'+str(ii), nb_vis=1, title_batch=[draw_text[ii]], outname=[os.path.join(out_dir, 'gt'+str(ii)+'.gif')] if savegif else None)
